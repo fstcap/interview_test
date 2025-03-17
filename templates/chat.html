@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Set a meeting</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- 左侧聊天区 -->
+        <div class="chat-box">
+            <div class="chat-history" id="chatHistory"></div>
+            <div class="input-area">
+                <input type="text" id="messageInput" placeholder="Input message...">
+                <button id="sendbtn" class="button" onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+
+        <!-- 右侧信息区 -->
+        <div class="info-box">
+            <div class="info-header">System info</div>
+            <div class="info-content" id="infoContent"></div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let dia_historys = [];
+
+        // 初始化加载后台信息
+        fetch('/get_info')
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(info => {
+                    document.getElementById('infoContent').innerHTML += `
+                        <div class="info-item">
+                            <h4>${info.title}</h4>
+                            <p>${info.content}</p>
+                        </div>
+                    `;
+                });
+            });
+
+        let btn_flag = true
+
+        // 消息展示
+        socket.on('msg_update', (data) => {
+            document.getElementById('infoContent').innerHTML = ""
+            data["content"].forEach(info => {
+                    document.getElementById('infoContent').innerHTML += `
+                        <div class="info-item">
+                            <h4>${info.title}</h4>
+                            <p>${info.content}</p>
+                        </div>
+                    `;
+                });
+        });
+
+        // 消息处理
+        socket.on('chat_update', (data) => {
+            const button = document.getElementById('sendbtn');
+            button.disabled = false;
+            btn_flag = true
+
+            dia_historys.push(data)
+            const chatHistory = document.getElementById('chatHistory');
+            chatHistory.innerHTML += `
+                <div class="message system">
+                    <span class="user">system:</span>
+                    <span class="text">${data.content}</span>
+                </div>
+            `;
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        });
+
+
+
+        function sendMessage() {
+            if(btn_flag == false){
+                return ""
+            }
+            const button = document.getElementById('sendbtn');
+            button.disabled = true;
+            btn_flag = false
+
+            const input = document.getElementById('messageInput');
+            dia_historys.push({role: 'user',content: input.value})
+
+            const chatHistory = document.getElementById('chatHistory');
+            chatHistory.innerHTML += `
+                <div class="message user">
+                    <span class="user">user:</span>
+                    <span class="text">${input.value}</span>
+                </div>
+            `;
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+
+            socket.emit('user_message', dia_historys);
+            input.value = '';
+        }
+    </script>
+</body>
+</html>
